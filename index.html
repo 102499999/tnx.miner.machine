@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>绑定查询系统</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,'Helvetica Neue',Arial;margin:16px;background:#f6f8fa}
+    .card{max-width:920px;margin:24px auto;padding:18px;background:white;border-radius:12px;box-shadow:0 6px 18px rgba(12,20,30,0.06)}
+    h1{font-size:20px;margin:0 0 12px}
+    .row{display:flex;gap:8px;margin-bottom:12px}
+    input[type=text]{flex:1;padding:10px;border:1px solid #e2e8f0;border-radius:8px;font-size:14px}
+    button{padding:10px 12px;border-radius:8px;border:0;background:#2563eb;color:white;cursor:pointer}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{padding:8px 10px;border-bottom:1px solid #eef2f7;text-align:left;font-size:13px}
+    th{background:#fafafa}
+    .muted{color:#6b7280;font-size:13px}
+    pre{background:#0f172a;color:#e6eef8;padding:12px;border-radius:8px;overflow:auto}
+    .small{font-size:12px;color:#374151}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>绑定查询系统</h1>
+    <div class="muted small">输入地址，查询绑定的矿机</div>
+
+    <div class="row">
+      <input id="addr" type="text" placeholder="输入地址（例如：0x344F...）">
+      <button id="btn" onclick="doQuery()">查询</button>
+      <button onclick="copyResult()" style="background:#10b981">复制结果</button>
+    </div>
+
+    <div id="info" class="muted small">等待查询...</div>
+    <div id="resultArea"></div>
+  </div>
+
+<script>
+const WORKER_URL = "https://YOUR_WORKER_DOMAIN.workers.dev"; // ← 填入你的 Worker 地址
+
+function mask(addr){
+  return addr.slice(0,6) + "********" + addr.slice(-4);
+}
+
+async function doQuery(){
+  const addr = document.getElementById("addr").value.trim();
+  const info = document.getElementById("info");
+  const resultArea = document.getElementById("resultArea");
+
+  if(!addr){
+    info.textContent = "请输入 Wallet Address";
+    return;
+  }
+
+  info.textContent = "查询中...";
+  resultArea.innerHTML = "";
+
+  try {
+    const res = await fetch(`${WORKER_URL}?user_address=${encodeURIComponent(addr)}`);
+    const json = await res.json();
+    if(json.code !== 1) throw new Error(json.msg);
+
+    const total = json.data.total;
+    info.innerHTML = `查询成功！总矿机数：<strong>${total}</strong>`;
+
+    let html = `<table><tr><th>#</th><th>矿机编号</th><th>地址</th><th>激活时间</th></tr>`;
+    
+    json.data.list.forEach((item,i)=>{
+      html += `<tr>
+        <td>${i+1}</td>
+        <td>${item.machine_no}</td>
+        <td>${mask(item.user_address)}</td>
+        <td>${item.activation_time || "-"}</td>
+      </tr>`;
+    });
+
+    html += `</table>`;
+    resultArea.innerHTML = html;
+    window._copy = json;
+  } catch(err){
+    info.textContent = "查询失败：" + err.message;
+  }
+}
+
+function copyResult(){
+  if(!window._copy) return alert("没有数据可复制！");
+  navigator.clipboard.writeText(JSON.stringify(window._copy,null,2));
+  alert("已复制结果");
+}
+</script>
+</body>
+</html>
